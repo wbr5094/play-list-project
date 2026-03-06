@@ -6,6 +6,7 @@ import { LitElement, html, css } from "lit";
 import { DDDSuper } from "@haxtheweb/d-d-d/d-d-d.js";
 import { I18NMixin } from "@haxtheweb/i18n-manager/lib/I18NMixin.js";
 import "./slide-indicator.js";
+import "./slide-arrow.js";
 
 /**
  * `play-list-project`
@@ -23,10 +24,12 @@ export class PlayListProject extends DDDSuper(I18NMixin(LitElement)) {
     super();
     this.title = "";
     this.t = this.t || {};
+    this.currentIndex = 0;
     this.t = {
       ...this.t,
       title: "Title",
     };
+    this.slides = Array.from(this.querySelectorAll("play-list-slide"));
   }
 
   // Lit reactive properties
@@ -34,6 +37,7 @@ export class PlayListProject extends DDDSuper(I18NMixin(LitElement)) {
     return {
       ...super.properties,
       title: { type: String },
+      currentIndex: {type: Number},
     };
   }
 
@@ -62,13 +66,67 @@ export class PlayListProject extends DDDSuper(I18NMixin(LitElement)) {
     return html`
 <div class="wrapper">
   <h3><span>${this.t.title}:</span> ${this.title}</h3>
-  <slot></slot>
+<playlist-arrow
+  .currentIndex="${this.currentIndex}"
+  .total="${this.slides ? this.slides.length : 0}"
+  @prev-clicked="${this.prev}"
+  @next-clicked="${this.next}">
+</playlist-arrow>  
+<div class="slides">
+  <slot @slotchange="${this._handleSlotChange}"></slot>
+</div>
+<playlist-indicator @dot-selected="${this._handleDotSelected}"
+    .total="${this.slides ? this.slides.length : 0}"
+    .currentIndex="${this.currentIndex}">
+  </playlist-indicator>
 </div>`;
   }
+  next() {
+  if (this.currentIndex < this.slides.length - 1) {
+    this.currentIndex++;
+    this._updateSlides();
+  }
+}
 
+_handleSlotChange(e) {
+  this.slides = e.target.assignedElements({ flatten: true });
+  this._updateSlides();
+}
+
+_handleDotSelected(e) {
+  this.currentIndex = e.detail.index;
+  this._updateSlides();
+}
+
+
+prev() {
+  if (this.currentIndex > 0) {
+    this.currentIndex--;
+    this._updateSlides();
+  }
+}
+
+firstUpdated() {
+  this._updateSlides();
+}
+
+_updateSlides() {
+  this.slides.forEach((slide, i) => {
+    slide.style.display = i === this.currentIndex ? "block" : "none";
+  });
+  const indexChange = new CustomEvent("play-list-index-changed", {
+  composed: true,
+  bubbles: true,
+  detail: {
+    index: this.currentIndex
+  },
+});
+this.dispatchEvent(indexChange);  
+
+}
+
+}
   /**
    * haxProperties integration via file reference
    */
-}
-
 globalThis.customElements.define(PlayListProject.tag, PlayListProject);
